@@ -21,9 +21,11 @@ package com.netease.arctic.ams.server.mapper;
 import com.netease.arctic.ams.server.model.BaseOptimizeTask;
 import com.netease.arctic.ams.server.model.BaseOptimizeTaskRuntime;
 import com.netease.arctic.ams.server.model.OptimizeTaskId;
+import com.netease.arctic.ams.server.model.TableTaskHistory;
 import com.netease.arctic.ams.server.mybatis.ListOfTreeNode2StringConverter;
 import com.netease.arctic.ams.server.mybatis.Long2TsConvertor;
 import com.netease.arctic.ams.server.mybatis.Map2StringConverter;
+import com.netease.arctic.table.TableIdentifier;
 import java.util.List;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
@@ -31,6 +33,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Result;
 import org.apache.ibatis.annotations.Results;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 public interface OptimizeTasksMapper {
   String TABLE_NAME = "optimizing_task";
@@ -121,4 +124,95 @@ public interface OptimizeTasksMapper {
   @Delete("delete from " + TABLE_NAME + " where procedure_id = #{optimizeTaskId.procedureId} and task_id = " +
       "#{optimizeTaskId.taskId}")
   void deleteOptimizeTask(@Param("optimizeTaskId") OptimizeTaskId optimizeTaskId);
+
+  /**
+   * Move from OptimizeTaskRuntimesMapper.
+   */
+  @Select("select procedure_id,task_id, task_type, status, start_time, cost_time, " +
+      " thread_id,optimizer_id, retry_num, fail_reason, new_file_size, new_file_count from" +
+      " (SELECT s.*," +
+      "IF(@pre_procedure_id = s.procedure_id and @pre_task_id = s.task_id, @cur_rank := @cur_rank + 1, @cur_rank := 1) ranking," +
+      "@pre_procedure_id := s.procedure_id,@pre_task_id := s.task_id" +
+      " FROM " + TABLE_NAME + " s , (SELECT @cur_rank := 0, @pre_procedure_id := NULL,@pre_task_id := NULL) r" +
+      " ORDER BY procedure_id,task_id,retry_num desc) aa" +
+      " where ranking=1")
+  @Results({
+      @Result(property = "taskId.procedureId", column = "procedure_id"),
+      @Result(property = "taskId.taskId", column = "task_id"),
+      @Result(property = "status", column = "status"),
+      @Result(property = "startTime", column = "start_time",
+          typeHandler = Long2TsConvertor.class),
+      @Result(property = "costTime", column = "cost_time"),
+      @Result(property = "threadId", column = "thread_id"),
+      @Result(property = "optimizerId", column = "optimizer_id"),
+      @Result(property = "retryCount", column = "retry_count"),
+      @Result(property = "failReason", column = "fail_reason"),
+      @Result(property = "newFileSize", column = "new_file_size"),
+      @Result(property = "newFileCount", column = "new_file_count")
+  })
+  List<BaseOptimizeTaskRuntime> selectAllOptimizeTaskRuntimes();
+
+  /**
+   * Move from TaskHistoryMapper.
+   */
+  @Select("select optimizing_task.table_id,procedure_id, task_id, retry_num, catalog_name, db_name, " +
+      "table_name,start_time, " +
+      "cost_time, optimizer_group from " + TABLE_NAME + " inner join table_identifier on " +
+      "optimizing_task.table_id=table_identifier.table_id where " +
+      "catalog_name = #{tableIdentifier.catalog} and db_name = #{tableIdentifier.database} " +
+      "and table_name = #{tableIdentifier.tableName} and procedure_id = #{procedureId}")
+  @Results({
+      @Result(column = "procedure_id", property = "optimizeTaskId.procedureId"),
+      @Result(column = "task_id", property = "optimizeTaskId.taskId"),
+      @Result(column = "retry_num", property = "retryNum"),
+      @Result(column = "table_id", property = "tableId"),
+      @Result(column = "optimizer_group", property = "optimizerGroup"),
+      @Result(column = "start_time", property = "startTime",
+          typeHandler = Long2TsConvertor.class),
+      @Result(column = "cost_time", property = "costTime"),
+      @Result(column = "optimizer_group", property = "optimizerGroup")
+  })
+  List<TableTaskHistory> selectTaskHistory(@Param("tableIdentifier") TableIdentifier tableIdentifier,
+      @Param("procedureId") String procedureId);
+
+  /**
+   * Move from TaskHistoryMapper.
+   */
+  @Update("update " + TABLE_NAME + " set " +
+      "start_time = #{taskHistory.startTime, " +
+      "typeHandler=com.netease.arctic.ams.server.mybatis.Long2TsConvertor}, " +
+      "cost_time = #{taskHistory.costTime}, status = #{taskHistory.status} " +
+      "where " +
+      "procedure_id = #{taskHistory.optimizeTaskId.procedureId} and task_id = #{taskHistory.optimizeTaskId.taskId} " +
+      "and retry_num = " +
+      "#{taskHistory.retryNum}")
+  void updateTaskHistory(@Param("taskHistory") TableTaskHistory taskHistory);
+
+  /**
+   * Move from TaskHistoryMapper.
+   */
+  @Select("select optimizing_task.table_id, procedure_id, task_id, retry_num, catalog_name, db_name, " +
+      "table_name,  " +
+      "start_time, cost_time, optimizer_group,status from " + TABLE_NAME + " inner join table_identifier on " +
+      " optimizing_task.table_id=table_identifier.table_id where " +
+      "catalog_name = #{tableIdentifier.catalog} and " +
+      "db_name = #{tableIdentifier.database} and " +
+      "table_name = #{tableIdentifier.tableName} " +
+      "and ((unix_timestamp(start_time)*1000+cost_time) > #{startTime})" +
+      " and unix_timestamp(start_time)*1000 < #{endTime}")
+  @Results({
+      @Result(column = "table_id", property = "tableId"),
+      @Result(column = "procedure_id", property = "optimizeTaskId.procedureId"),
+      @Result(column = "task_id", property = "optimizeTaskId.taskId"),
+      @Result(column = "retry_num", property = "retryNum"),
+      @Result(column = "table_id", property = "tableId"),
+      @Result(column = "start_time", property = "startTime",
+          typeHandler = Long2TsConvertor.class),
+      @Result(column = "cost_time", property = "costTime"),
+      @Result(column = "optimizer_group", property = "optimizerGroup"),
+      @Result(column = "status", property = "status")
+  })
+  List<TableTaskHistory> selectTaskHistoryByTableIdAndTime(@Param("tableIdentifier") TableIdentifier tableIdentifier,
+      @Param("startTime") long startTime,
+      @Param("endTime") long endTime);
 }

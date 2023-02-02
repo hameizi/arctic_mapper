@@ -18,11 +18,14 @@
 
 package com.netease.arctic.ams.server.model;
 
+import com.netease.arctic.ams.api.OptimizeStatus;
 import com.netease.arctic.table.TableIdentifier;
 
 public class TableTaskHistory {
   private long tableId;
   private OptimizeTaskId optimizeTaskId;
+
+  private OptimizeStatus status = OptimizeStatus.Init;
   private int retryNum = 0;
   private long startTime;
   private long costTime;
@@ -42,6 +45,14 @@ public class TableTaskHistory {
 
   public void setOptimizeTaskId(OptimizeTaskId optimizeTaskId) {
     this.optimizeTaskId = optimizeTaskId;
+  }
+
+  public OptimizeStatus getStatus() {
+    return status;
+  }
+
+  public void setStatus(OptimizeStatus status) {
+    this.status = status;
   }
 
   public int getRetryNum() {

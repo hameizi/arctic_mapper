@@ -215,7 +215,7 @@ public class Test extends IJDBCService {
       BaseOptimizeTask baseOptimizeTask = new BaseOptimizeTask();
       OptimizeTaskId optimizeTaskId = new OptimizeTaskId();
       optimizeTaskId.setTaskId(1);
-      optimizeTaskId.setProcedureId("2");
+      optimizeTaskId.setProcedureId("5");
       baseOptimizeTask.setTaskId(optimizeTaskId);
       baseOptimizeTask.setTaskType("Major");
       baseOptimizeTask.setTableId(1);
@@ -255,12 +255,10 @@ public class Test extends IJDBCService {
       OptimizeTasksMapper optimizeTasksMapper = getMapper(sqlSession, OptimizeTasksMapper.class);
       optimizeTasksMapper.insertOptimizeTask(baseOptimizeTask, baseOptimizeTaskRuntime);
       optimizeTasksMapper.selectAllOptimizeTasks();
-      OptimizeTaskRuntimesMapper optimizeTaskRuntimesMapper = getMapper(sqlSession, OptimizeTaskRuntimesMapper.class);
       baseOptimizeTaskRuntime.setRetryNum(20);
-      // optimizeTaskRuntimesMapper.updateOptimizeTaskRuntime(baseOptimizeTaskRuntime);
-      optimizeTaskRuntimesMapper.selectAllOptimizeTaskRuntimes();
+      optimizeTasksMapper.selectAllOptimizeTaskRuntimes();
 
-      // optimizeTasksMapper.deleteOptimizeTask(optimizeTaskId);
+      optimizeTasksMapper.deleteOptimizeTask(optimizeTaskId);
     }
   }
 
@@ -342,24 +340,22 @@ public class Test extends IJDBCService {
   @org.junit.Test
   public void testTaskHistoryMapper() {
     try (SqlSession sqlSession = getSqlSession(true)) {
-      TaskHistoryMapper mapper = getMapper(sqlSession, TaskHistoryMapper.class);
+      OptimizeTasksMapper mapper = getMapper(sqlSession, OptimizeTasksMapper.class);
       TableTaskHistory taskHistory = new TableTaskHistory();
       taskHistory.setTableId(7);
       OptimizeTaskId optimizeTaskId = new OptimizeTaskId();
-      optimizeTaskId.setProcedureId("xx");
-      optimizeTaskId.setTaskId(3);
+      optimizeTaskId.setProcedureId("3");
+      optimizeTaskId.setTaskId(2);
       taskHistory.setOptimizeTaskId(optimizeTaskId);
       taskHistory.setCostTime(111L);
       taskHistory.setStartTime(System.currentTimeMillis());
       taskHistory.setOptimizerGroup(2);
       taskHistory.setRetryNum(4);
-      // mapper.insertTaskHistory(taskHistory);
       mapper.selectTaskHistory(TableIdentifier.of("testCatalog", "testDb", "testTable"), "2");
       mapper.selectTaskHistoryByTableIdAndTime(TableIdentifier.of("testCatalog", "testDb", "testTable"),
           System.currentTimeMillis()-100000000, System.currentTimeMillis());
+      taskHistory.setStatus(OptimizeStatus.Committed);
       mapper.updateTaskHistory(taskHistory);
-      // mapper.expireTaskHistory(7,System.currentTimeMillis()+12);
-      // mapper.deleteTaskHistory(7);
     }
   }
 }
